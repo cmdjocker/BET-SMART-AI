@@ -69,41 +69,46 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
     
     const today = new Date().toDateString();
     const model = "gemini-2.5-flash";
-    const prompt = `List 4 exciting football matches playing today (${today}) or in the next 24 hours. Focus on major leagues (EPL, La Liga, Serie A, Bundesliga, Champions League) or popular international matches. If no major games today, list the biggest upcoming games. Return strictly JSON.`;
+    
+    // We use the Google Search tool to get REAL match data.
+    // Since responseSchema is not supported with tools, we ask for raw JSON text.
+    const prompt = `
+      Using Google Search, find 4 confirmed football matches playing today (${today}) or tomorrow.
+      Focus on major leagues (EPL, La Liga, Serie A, Bundesliga, Champions League) or popular international matches.
+      
+      Output the result strictly as a JSON array of objects. Do not use markdown formatting or code blocks.
+      Each object must have these fields: "id" (number), "league" (string), "home" (string), "away" (string), "time" (string).
+      Example format: [{"id": 1, "league": "Premier League", "home": "Arsenal", "away": "Chelsea", "time": "20:00"}]
+    `;
 
     try {
         const response = await ai.models.generateContent({
             model,
             contents: prompt,
             config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            id: { type: Type.INTEGER },
-                            league: { type: Type.STRING },
-                            home: { type: Type.STRING },
-                            away: { type: Type.STRING },
-                            time: { type: Type.STRING }
-                        },
-                        required: ["id", "league", "home", "away", "time"]
-                    }
-                }
+                tools: [{ googleSearch: {} }], 
             }
         });
 
-        if (response.text) {
-            return JSON.parse(response.text) as TrendingMatch[];
+        const text = response.text || "";
+        
+        // Robust JSON extraction
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+            const matches = JSON.parse(jsonMatch[0]) as TrendingMatch[];
+            // Ensure we return valid objects
+            return matches.slice(0, 4).map((m, i) => ({
+                id: i + 1,
+                league: m.league || "Unknown League",
+                home: m.home || "Home Team",
+                away: m.away || "Away Team",
+                time: m.time || "TBD"
+            }));
         }
+        
         return [];
     } catch (e) {
         console.error("Failed to fetch trending matches", e);
-        // Fallback data if API fails to avoid empty UI
-        return [
-            { id: 1, league: "Example League", home: "Home Team", away: "Away Team", time: "20:00" },
-            { id: 2, league: "Example League", home: "Home Team", away: "Away Team", time: "21:00" }
-        ];
+        return [];
     }
 }

@@ -31,7 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, toggleTheme, curren
                 onClick={() => setView(ViewState.HOME)}
                 className={`px-3 py-2 rounded-md font-medium transition-colors ${currentView === ViewState.HOME ? 'text-green-500' : 'hover:text-green-500'}`}
               >
-                Predictions
+                Home
               </button>
               <button 
                 onClick={() => setView(ViewState.VIP)}
