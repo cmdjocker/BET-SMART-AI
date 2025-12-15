@@ -1,0 +1,208 @@
+import React, { useState } from 'react';
+import { getPrediction } from '../services/geminiService';
+import { PredictionData } from '../types';
+
+interface HomeViewProps {
+  darkMode: boolean;
+}
+
+const FEATURED_GAMES = [
+  { id: 1, league: 'Premier League', home: 'Man City', away: 'Liverpool', time: '19:45 GMT' },
+  { id: 2, league: 'La Liga', home: 'Real Madrid', away: 'FC Barcelona', time: '20:00 GMT' },
+  { id: 3, league: 'Bundesliga', home: 'Bayern Munich', away: 'Dortmund', time: '18:30 GMT' },
+  { id: 4, league: 'Serie A', home: 'Inter Milan', away: 'Juventus', time: '19:45 GMT' },
+];
+
+const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [prediction, setPrediction] = useState<PredictionData | null>(null);
+  const [error, setError] = useState('');
+
+  const executePrediction = async (matchQuery: string) => {
+    if (!matchQuery.trim()) return;
+    setLoading(true);
+    setError('');
+    setPrediction(null);
+    setQuery(matchQuery); // Update the input field
+
+    try {
+      const data = await getPrediction(matchQuery);
+      setPrediction(data);
+    } catch (err) {
+      setError('Failed to fetch prediction. Please check your API Key or try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePredict = (e: React.FormEvent) => {
+    e.preventDefault();
+    executePrediction(query);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto w-full">
+        {/* Logo Section */}
+        <div className="flex flex-col items-center justify-center mb-10 animate-fade-in">
+             <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-700 rounded-2xl flex items-center justify-center shadow-xl transform -rotate-2 hover:rotate-0 transition-transform duration-300">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-14 w-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                 </svg>
+             </div>
+             <div className={`mt-4 text-3xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                BET SMART <span className="text-green-500">AI</span>
+             </div>
+        </div>
+
+      {/* Hero Section */}
+      <div className="text-center mb-12 animate-fade-in">
+        <h1 className={`text-4xl md:text-6xl font-extrabold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          Win More with <span className="text-green-500">AI-Powered Stats</span>
+        </h1>
+        <p className={`text-lg md:text-xl mb-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+          Get high-probability betting predictions backed by data from top statistical sources.
+        </p>
+
+        {/* Input Form */}
+        <form onSubmit={handlePredict} className="max-w-xl mx-auto relative z-10">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Enter match (e.g., Man City vs Arsenal)..."
+            className={`w-full px-6 py-4 rounded-full text-lg border-2 outline-none transition-all shadow-lg
+              ${darkMode 
+                ? 'bg-slate-800 border-slate-700 text-white focus:border-green-500 placeholder-gray-500' 
+                : 'bg-white border-gray-200 text-gray-900 focus:border-green-500 placeholder-gray-400'
+              }`}
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="absolute right-2 top-2 bottom-2 bg-green-500 hover:bg-green-600 text-white px-8 rounded-full font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Analyzing...' : 'Predict'}
+          </button>
+        </form>
+
+        {/* Featured Games Section */}
+        {!prediction && !loading && (
+            <div className="mt-16 max-w-3xl mx-auto">
+                <div className="flex items-center justify-center gap-2 mb-6">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                    <h3 className={`text-sm font-bold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Trending Matches Today
+                    </h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {FEATURED_GAMES.map((game) => (
+                        <button
+                            key={game.id}
+                            onClick={() => executePrediction(`${game.home} vs ${game.away}`)}
+                            className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:scale-[1.02] group text-left
+                                ${darkMode 
+                                    ? 'bg-slate-800/50 border-slate-700 hover:border-green-500/50 hover:bg-slate-800' 
+                                    : 'bg-white border-gray-100 hover:border-green-500/30 hover:shadow-lg'
+                                }`}
+                        >
+                            <div>
+                                <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>{game.league}</div>
+                                <div className={`font-semibold text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    {game.home} <span className="text-gray-500 text-sm mx-1">vs</span> {game.away}
+                                </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                                <span className={`text-xs px-2 py-1 rounded-full font-mono ${darkMode ? 'bg-slate-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                                    {game.time}
+                                </span>
+                                <span className="text-green-500 opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold flex items-center gap-1">
+                                    Analyze <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                </span>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        )}
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 mb-8 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-center animate-fade-in">
+          {error}
+        </div>
+      )}
+
+      {/* Prediction Result */}
+      {prediction && (
+        <div className={`animate-fade-in rounded-2xl overflow-hidden shadow-2xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'}`}>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6 text-white text-center relative">
+             <button 
+                onClick={() => setPrediction(null)}
+                className="absolute left-6 top-1/2 -translate-y-1/2 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+                title="Back to search"
+             >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+             </button>
+             <h2 className="text-2xl font-bold">{prediction.homeTeam} vs {prediction.awayTeam}</h2>
+             <div className="mt-2 text-sm opacity-90 font-medium tracking-wide uppercase">AI Probability Analysis</div>
+          </div>
+
+          <div className="p-8">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-8">
+                {/* Result Block */}
+                <div className="text-center w-full md:w-1/3">
+                    <div className="text-sm text-gray-400 uppercase tracking-wider mb-1">Predicted Winner</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {prediction.predictedWinner}
+                    </div>
+                </div>
+
+                {/* Score Block */}
+                <div className="text-center w-full md:w-1/3 md:border-x border-gray-200/20 px-4">
+                     <div className="text-sm text-gray-400 uppercase tracking-wider mb-1">Likely Score</div>
+                     <div className="text-4xl font-extrabold text-green-500">{prediction.scorePrediction}</div>
+                </div>
+
+                {/* Confidence Block */}
+                 <div className="text-center w-full md:w-1/3">
+                    <div className="text-sm text-gray-400 uppercase tracking-wider mb-1">Confidence</div>
+                    <div className="flex items-center justify-center gap-2">
+                         <div className="text-2xl font-bold text-yellow-500">{prediction.confidence}%</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Reasoning */}
+            <div className={`mb-6 p-6 rounded-xl ${darkMode ? 'bg-slate-900' : 'bg-gray-50'}`}>
+                <h3 className={`font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>AI Analysis</h3>
+                <p className={`leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {prediction.reasoning}
+                </p>
+            </div>
+
+            {/* Key Stats */}
+            <div>
+                <h3 className={`font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Key Statistics</h3>
+                <ul className="space-y-3">
+                    {prediction.keyStats.map((stat, idx) => (
+                        <li key={idx} className="flex items-start gap-3">
+                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
+                            <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>{stat}</span>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default HomeView;
