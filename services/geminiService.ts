@@ -1,11 +1,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { PredictionData } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getPrediction = async (matchQuery: string): Promise<PredictionData> => {
-  if (!apiKey) {
+  if (!process.env.API_KEY) {
     throw new Error("API Key is missing. Please check your environment variables.");
   }
 
