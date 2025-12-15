@@ -6,6 +6,9 @@ export interface PredictionData {
   confidence: number; // 0 to 100
   reasoning: string;
   keyStats: string[];
+  overUnder: string; // e.g., "Over 2.5"
+  btts: string; // e.g., "Yes"
+  predictionLevel: number; // 1 to 100
 }
 
 export interface VipPlan {
@@ -13,6 +16,14 @@ export interface VipPlan {
   price: string;
   features: string[];
   recommended?: boolean;
+}
+
+export interface TrendingMatch {
+  id: number;
+  league: string;
+  home: string;
+  away: string;
+  time: string;
 }
 
 export enum ViewState {
