@@ -1,8 +1,9 @@
 import React from 'react';
-import { VipPlan } from '../types';
+import { VipPlan, ViewState } from '../types';
 
 interface VipViewProps {
   darkMode: boolean;
+  setView: (view: ViewState) => void;
 }
 
 const plans: VipPlan[] = [
@@ -24,7 +25,7 @@ const plans: VipPlan[] = [
   }
 ];
 
-const VipView: React.FC<VipViewProps> = ({ darkMode }) => {
+const VipView: React.FC<VipViewProps> = ({ darkMode, setView }) => {
   return (
     <div className="max-w-5xl mx-auto w-full animate-fade-in">
        <div className="text-center mb-12">
@@ -74,22 +75,19 @@ const VipView: React.FC<VipViewProps> = ({ darkMode }) => {
             ))}
        </div>
 
-       {/* Registration Form Mockup */}
-       <div className={`max-w-xl mx-auto p-8 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
-            <h3 className={`text-2xl font-bold mb-6 text-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>Create Free Account</h3>
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-                <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Email Address</label>
-                    <input type="email" className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-green-500 outline-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-gray-300'}`} placeholder="you@example.com" />
-                </div>
-                <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Password</label>
-                    <input type="password" className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-green-500 outline-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-gray-300'}`} placeholder="••••••••" />
-                </div>
-                <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors mt-2">
-                    Start Free Trial
-                </button>
-            </form>
+       {/* CTA Section */}
+       <div className={`max-w-3xl mx-auto p-12 rounded-3xl border text-center relative overflow-hidden ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-green-600"></div>
+            <h3 className={`text-3xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Ready to Start Winning?</h3>
+            <p className={`text-lg mb-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Create your free account today and get access to our basic AI predictions instantly.
+            </p>
+            <button 
+                onClick={() => setView(ViewState.REGISTER)}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold text-lg px-8 py-4 rounded-xl transition-all hover:scale-105 shadow-xl shadow-green-600/20"
+            >
+                Create Free Account
+            </button>
        </div>
     </div>
   );

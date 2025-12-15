@@ -1,5 +1,7 @@
 import React, { ReactNode } from 'react';
 import { ViewState } from '../types';
+import { useAuth } from '../context/AuthContext';
+import ChatSupport from './ChatSupport';
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,6 +12,8 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, darkMode, toggleTheme, currentView, setView }) => {
+  const { user, logout } = useAuth();
+
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
       {/* Header */}
@@ -22,10 +26,11 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, toggleTheme, curren
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                </svg>
             </div>
-            <span className="font-bold text-xl tracking-tight">Bet Smart <span className="text-green-500">AI</span></span>
+            <span className="font-bold text-xl tracking-tight hidden sm:inline">Bet Smart <span className="text-green-500">AI</span></span>
+            <span className="font-bold text-xl tracking-tight sm:hidden"><span className="text-green-500">AI</span></span>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 md:gap-6">
             <nav className="hidden md:flex gap-4">
               <button 
                 onClick={() => setView(ViewState.HOME)}
@@ -43,10 +48,50 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, toggleTheme, curren
                 VIP Access
               </button>
             </nav>
+
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-700 hidden md:block"></div>
+
+            <div className="flex items-center gap-2">
+                {user ? (
+                    <div className="flex items-center gap-3">
+                         <div className={`hidden md:flex flex-col items-end`}>
+                             <span className={`text-xs font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{user.name}</span>
+                             <span className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Free Plan</span>
+                         </div>
+                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-green-500 to-green-300 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                             {user.name.charAt(0).toUpperCase()}
+                         </div>
+                         <button 
+                            onClick={logout}
+                            className={`p-2 rounded-full hover:bg-red-500/10 hover:text-red-500 transition-colors ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                            title="Logout"
+                         >
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                         </button>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => setView(ViewState.LOGIN)}
+                            className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${darkMode ? 'hover:bg-slate-800 text-gray-300' : 'hover:bg-gray-200 text-gray-700'}`}
+                        >
+                            Login
+                        </button>
+                        <button 
+                            onClick={() => setView(ViewState.REGISTER)}
+                            className="px-4 py-1.5 rounded-full bg-green-500 hover:bg-green-600 text-white text-sm font-bold transition-colors shadow-lg shadow-green-500/20"
+                        >
+                            Sign Up
+                        </button>
+                    </div>
+                )}
+            </div>
             
             <button 
               onClick={toggleTheme}
-              className={`p-2 rounded-full ${darkMode ? 'bg-slate-800 text-yellow-400' : 'bg-gray-200 text-slate-700'}`}
+              className={`p-2 rounded-full ml-1 ${darkMode ? 'bg-slate-800 text-yellow-400' : 'bg-gray-200 text-slate-700'}`}
               aria-label="Toggle Theme"
             >
               {darkMode ? (
@@ -84,6 +129,9 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, toggleTheme, curren
             </div>
         </aside>
       </div>
+
+      {/* Global Chat Support Widget */}
+      <ChatSupport darkMode={darkMode} />
 
       {/* Footer */}
       <footer className={`border-t py-12 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-gray-100 border-gray-200'}`}>

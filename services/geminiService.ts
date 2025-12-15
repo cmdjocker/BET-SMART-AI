@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Chat } from "@google/genai";
 import { PredictionData, TrendingMatch } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -111,4 +111,13 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
         console.error("Failed to fetch trending matches", e);
         return [];
     }
-}
+};
+
+export const createSupportChat = (): Chat => {
+  return ai.chats.create({
+    model: "gemini-2.5-flash",
+    config: {
+      systemInstruction: "You are 'BetBot', a friendly and professional customer support agent for 'Bet Smart With AI'. Your goal is to assist users with navigating the website, explaining the VIP plans (Weekly, Monthly Pro, Season Ticket), and clarifying betting terms (Over/Under, BTTS). You can explain how the AI works (aggregating stats). If users ask for a specific match prediction during this chat, kindly guide them to use the main search bar on the home page. Keep your answers concise, helpful, and polite.",
+    }
+  });
+};

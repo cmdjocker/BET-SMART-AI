@@ -26,7 +26,15 @@ export interface TrendingMatch {
   time: string;
 }
 
+export interface User {
+  name: string;
+  email: string;
+  isVip: boolean;
+}
+
 export enum ViewState {
   HOME = 'HOME',
   VIP = 'VIP',
+  LOGIN = 'LOGIN',
+  REGISTER = 'REGISTER'
 }
