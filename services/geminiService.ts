@@ -25,33 +25,64 @@ const getAI = () => {
  * Robust JSON extraction helper
  */
 const extractJSON = <T>(text: string): T | null => {
-    try {
-        // Remove markdown code blocks if present
-        let cleanText = text.replace(/```json|```/g, '').replace(/```/g, '').trim();
-        
-        // Find the first '{' or '[' and the last '}' or ']'
-        const firstOpen = cleanText.search(/[{[]/);
-        const lastClose = cleanText.search(/[}\]](?!.*[}\]])/);
-        
-        if (firstOpen !== -1 && lastClose !== -1) {
-            cleanText = cleanText.substring(firstOpen, lastClose + 1);
-        }
-        
-        // --- JSON REPAIR LOGIC ---
-        
-        // 1. Fix missing commas between objects: } { or } \n { -> }, {
-        // This handles cases where the AI forgets the comma in an array
-        cleanText = cleanText.replace(/}(\s*){/g, '},$1{');
+    // 1. Remove Markdown Code Blocks
+    let cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-        // 2. Fix trailing commas before closing brackets: , ] or , } -> ] or }
-        // JSON does not allow trailing commas
-        cleanText = cleanText.replace(/,(\s*[}\]])/g, '$1');
-        
+    // 2. Locate the outer-most JSON structure (Object or Array)
+    const firstBrace = cleanText.indexOf('{');
+    const firstBracket = cleanText.indexOf('[');
+    
+    let startIndex = -1;
+    // Determine start index based on what comes first
+    if (firstBrace !== -1 && firstBracket !== -1) {
+        startIndex = Math.min(firstBrace, firstBracket);
+    } else {
+        startIndex = firstBrace !== -1 ? firstBrace : firstBracket;
+    }
+    
+    if (startIndex === -1) return null;
+
+    // Find the last closing character
+    const lastBrace = cleanText.lastIndexOf('}');
+    const lastBracket = cleanText.lastIndexOf(']');
+    const endIndex = Math.max(lastBrace, lastBracket);
+    
+    if (endIndex === -1 || endIndex < startIndex) return null;
+
+    cleanText = cleanText.substring(startIndex, endIndex + 1);
+
+    // 3. Remove JS-style comments (// ...) which are invalid in JSON but common in AI output
+    cleanText = cleanText.replace(/\/\/.*$/gm, '');
+
+    // 4. Attempt First Parse (Cleaned Raw)
+    try {
         return JSON.parse(cleanText) as T;
     } catch (e) {
-        console.error("JSON Parse Error:", e);
-        console.log("Raw text was:", text);
-        console.log("Attempted clean text:", text.replace(/```json|```/g, ''));
+        // Fall through to repair logic
+    }
+
+    // 5. Repair Logic
+    
+    // Fix: Missing commas between objects (e.g., } { or } \n {)
+    // We replace '}' followed by optional whitespace and then '{' with '}, {'
+    cleanText = cleanText.replace(/}(\s*){/g, '},$1{');
+    
+    // Fix: Trailing commas (e.g., ,} or ,])
+    cleanText = cleanText.replace(/,\s*([}\]])/g, '$1');
+
+    try {
+        return JSON.parse(cleanText) as T;
+    } catch (e) {
+        // 6. Last Resort: Auto-wrap array
+        // If the text looks like a list of objects "{...}, {...}" but is missing [ ], wrap it.
+        if (cleanText.trim().startsWith('{')) {
+             try {
+                return JSON.parse(`[${cleanText}]`) as T;
+             } catch(e2) {}
+        }
+
+        console.error("JSON Parsing failed after repairs.");
+        console.log("Failed Text:", cleanText);
         return null;
     }
 };
@@ -64,7 +95,7 @@ export const getPrediction = async (matchQuery: string): Promise<PredictionData>
     Analyze this match: "${matchQuery}".
     
     Step 1: SEARCH. Perform a Google Search to find the latest statistics, team form, head-to-head records, and injury news. 
-    Prioritize data from these sources if available: SportMonks, Forebet, SportsMole, FiveThirtyEight, SofaScore, FlashScore.
+    Prioritize data from: SportMonks (https://www.sportmonks.com), Forebet, SportsMole, SofaScore, FlashScore.
     
     Step 2: PREDICT. Based on the search results, synthesize a betting prediction.
     
@@ -77,12 +108,12 @@ export const getPrediction = async (matchQuery: string): Promise<PredictionData>
       "awayTeam": "string",
       "predictedWinner": "string (Team Name or 'Draw')",
       "scorePrediction": "string (e.g. '2-1')",
-      "confidence": number (0-100),
+      "confidence": number (integer 0-100),
       "reasoning": "string (Concise analysis citing the stats found)",
       "keyStats": ["string", "string", "string"],
       "overUnder": "string (e.g. 'Over 2.5')",
       "btts": "string (e.g. 'Yes' or 'No')",
-      "predictionLevel": number (1-100 score of prediction strength)
+      "predictionLevel": number (integer 1-100 score of prediction strength)
     }
   `;
 
@@ -102,7 +133,7 @@ export const getPrediction = async (matchQuery: string): Promise<PredictionData>
       return data;
     }
     
-    throw new Error("AI response could not be parsed as JSON");
+    throw new Error("AI response could not be parsed as JSON.");
 
   } catch (error) {
     console.error("Error fetching prediction:", error);
@@ -122,13 +153,21 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
         const model = "gemini-2.5-flash";
         
         const prompt = `
-          Using Google Search, find 4 confirmed high-profile football matches playing today (${today}) or tomorrow.
+          Task: Find 4 confirmed high-profile football matches playing today (${today}) or tomorrow.
           
-          OUTPUT INSTRUCTIONS:
-          - Return ONLY a valid JSON Array.
-          - Example: [{"id": 1, "league": "EPL", "home": "A", "away": "B", "time": "18:00"}, {"id": 2, ...}]
-          - Ensure there is a COMMA between objects.
-          - Do NOT use markdown code blocks.
+          Priority Sources: SportMonks (https://www.sportmonks.com), FlashScore.
+          
+          Output Requirements:
+          1. Return ONLY a valid JSON Array.
+          2. No markdown formatting.
+          3. Strictly follow the JSON format below.
+          4. No comments.
+
+          Example Format:
+          [
+            {"id": 1, "league": "EPL", "home": "Arsenal", "away": "Chelsea", "time": "15:00 UTC"},
+            {"id": 2, "league": "La Liga", "home": "Real Madrid", "away": "Barca", "time": "20:00 UTC"}
+          ]
         `;
 
         const response = await ai.models.generateContent({
@@ -140,20 +179,32 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
         });
 
         const text = response.text || "";
-        const matches = extractJSON<TrendingMatch[]>(text);
         
-        if (matches && Array.isArray(matches)) {
-            return matches.slice(0, 4).map((m, i) => ({
-                id: i + 1,
-                league: m.league || "Unknown",
-                home: m.home || "Home",
-                away: m.away || "Away",
-                time: m.time || "TBD"
-            }));
+        // Try extracting. It might be an Array, or a single Object if the AI messes up.
+        // We type as any here to inspect it manually below.
+        const parsed = extractJSON<any>(text);
+        
+        let matches: any[] = [];
+
+        if (Array.isArray(parsed)) {
+            matches = parsed;
+        } else if (parsed && typeof parsed === 'object') {
+            // Handle single object return
+            matches = [parsed];
+        } else {
+             console.warn("Failed to parse trending matches JSON.");
+             return [];
         }
-        
-        console.warn("Failed to parse trending matches JSON.");
-        return [];
+
+        // Validate structure and map to type
+        return matches.slice(0, 4).map((m: any, i: number) => ({
+            id: i + 1,
+            league: m.league || "Unknown League",
+            home: m.home || "Home Team",
+            away: m.away || "Away Team",
+            time: m.time || "TBD"
+        }));
+
     } catch (e) {
         console.error("Failed to fetch trending matches", e);
         return [];
