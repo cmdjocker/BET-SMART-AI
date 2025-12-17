@@ -1,6 +1,13 @@
 import { GoogleGenAI, Type, Chat } from "@google/genai";
 import { PredictionData, TrendingMatch } from "../types";
 
+// Declare process for TypeScript since we don't have @types/node and Vite replaces it
+declare const process: {
+  env: {
+    API_KEY: string | undefined
+  }
+};
+
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getPrediction = async (matchQuery: string): Promise<PredictionData> => {

@@ -47,7 +47,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (name: string, email: string, password: string) => {
       // Simulate API call
-      return new Promise<void>((resolve, reject) => {
+      // Use password variable to prevent TS unused error
+      const _p = password; 
+      return new Promise<void>((resolve) => {
         setTimeout(() => {
              const fakeUser: User = {
                 name,
