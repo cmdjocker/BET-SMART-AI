@@ -27,23 +27,31 @@ const getAI = () => {
 const extractJSON = <T>(text: string): T | null => {
     try {
         // Remove markdown code blocks if present
-        let cleanText = text.replace(/```json|```/g, '').trim();
+        let cleanText = text.replace(/```json|```/g, '').replace(/```/g, '').trim();
         
-        // Find the first '{' or '['
+        // Find the first '{' or '[' and the last '}' or ']'
         const firstOpen = cleanText.search(/[{[]/);
-        if (firstOpen !== -1) {
-            cleanText = cleanText.substring(firstOpen);
-            // Find the last '}' or ']'
-            const lastClose = cleanText.search(/[}\]](?!.*[}\]])/);
-            if (lastClose !== -1) {
-                cleanText = cleanText.substring(0, lastClose + 1);
-            }
+        const lastClose = cleanText.search(/[}\]](?!.*[}\]])/);
+        
+        if (firstOpen !== -1 && lastClose !== -1) {
+            cleanText = cleanText.substring(firstOpen, lastClose + 1);
         }
+        
+        // --- JSON REPAIR LOGIC ---
+        
+        // 1. Fix missing commas between objects: } { or } \n { -> }, {
+        // This handles cases where the AI forgets the comma in an array
+        cleanText = cleanText.replace(/}(\s*){/g, '},$1{');
+
+        // 2. Fix trailing commas before closing brackets: , ] or , } -> ] or }
+        // JSON does not allow trailing commas
+        cleanText = cleanText.replace(/,(\s*[}\]])/g, '$1');
         
         return JSON.parse(cleanText) as T;
     } catch (e) {
         console.error("JSON Parse Error:", e);
         console.log("Raw text was:", text);
+        console.log("Attempted clean text:", text.replace(/```json|```/g, ''));
         return null;
     }
 };
@@ -84,7 +92,6 @@ export const getPrediction = async (matchQuery: string): Promise<PredictionData>
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType is NOT allowed with tools
       }
     });
 
@@ -117,9 +124,11 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
         const prompt = `
           Using Google Search, find 4 confirmed high-profile football matches playing today (${today}) or tomorrow.
           
-          Output the result STRICTLY as a JSON array of objects. 
-          DO NOT output any conversational text.
-          Format: [{"id": 1, "league": "string", "home": "string", "away": "string", "time": "string"}]
+          OUTPUT INSTRUCTIONS:
+          - Return ONLY a valid JSON Array.
+          - Example: [{"id": 1, "league": "EPL", "home": "A", "away": "B", "time": "18:00"}, {"id": 2, ...}]
+          - Ensure there is a COMMA between objects.
+          - Do NOT use markdown code blocks.
         `;
 
         const response = await ai.models.generateContent({
