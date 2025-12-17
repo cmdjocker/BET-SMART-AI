@@ -1,70 +1,84 @@
-import { GoogleGenAI, Type, Chat } from "@google/genai";
+import { GoogleGenAI, Chat } from "@google/genai";
 import { PredictionData, TrendingMatch } from "../types";
 
-// Declare process for TypeScript since we don't have @types/node and Vite replaces it
+// Declare process for TypeScript
 declare const process: {
   env: {
     API_KEY: string | undefined
   }
 };
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+/**
+ * Helper to get an initialized AI instance.
+ * Throws if API Key is missing.
+ */
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.error("API_KEY is missing in environment variables.");
+    throw new Error("API Key is missing. Please check your Vercel settings.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 export const getPrediction = async (matchQuery: string): Promise<PredictionData> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API Key is missing. Please check your environment variables.");
-  }
-
+  const ai = getAI();
   const model = "gemini-2.5-flash";
   
-  const systemInstruction = `
-    You are an expert sports betting analyst and aggregator. 
-    Your goal is to provide high-probability betting predictions by simulating the analysis of top statistical sources, including:
-    SportMonks, Forebet, SportsMole, FiveThirtyEight, FootyStats, PredictZ, and SofaScore.
+  // We use googleSearch to get real stats from the requested sources.
+  // Note: When using tools, we cannot use responseMimeType: "application/json".
+  // We must ask for JSON in the prompt and parse it manually.
+  
+  const prompt = `
+    Analyze this match: "${matchQuery}".
     
-    Analyze the match provided by the user. 
-    Synthesize a consensus prediction based on team form, head-to-head stats, and injuries.
-    Include specific betting markets like Over/Under 2.5 goals and Both Teams To Score (BTTS).
-    Calculate a "Prediction Level" from 1-100 indicating the strength of the signal.
-    Return the data in a strict JSON format.
+    Step 1: SEARCH. Perform a Google Search to find the latest statistics, team form, head-to-head records, and injury news. 
+    Prioritize data from these sources if available: SportMonks, Forebet, SportsMole, FiveThirtyEight, SofaScore.
+    
+    Step 2: PREDICT. Based on the search results, synthesize a betting prediction.
+    
+    Step 3: OUTPUT. Return the result STRICTLY as a valid JSON object. Do not include markdown formatting (like \`\`\`json).
+    
+    The JSON object must strictly follow this schema:
+    {
+      "homeTeam": "string",
+      "awayTeam": "string",
+      "predictedWinner": "string (Team Name or 'Draw')",
+      "scorePrediction": "string (e.g. '2-1')",
+      "confidence": number (0-100),
+      "reasoning": "string (Concise analysis citing the stats found)",
+      "keyStats": ["string", "string", "string"],
+      "overUnder": "string (e.g. 'Over 2.5')",
+      "btts": "string (e.g. 'Yes' or 'No')",
+      "predictionLevel": number (1-100 score of prediction strength)
+    }
   `;
-
-  const prompt = `Analyze this match: "${matchQuery}". Provide a prediction based on aggregated statistical logic.`;
 
   try {
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
       config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            homeTeam: { type: Type.STRING },
-            awayTeam: { type: Type.STRING },
-            predictedWinner: { type: Type.STRING, description: "Name of the winning team or 'Draw'" },
-            scorePrediction: { type: Type.STRING, description: "e.g., 2-1" },
-            confidence: { type: Type.INTEGER, description: "Percentage confidence 0-100" },
-            reasoning: { type: Type.STRING, description: "A brief summary of why this outcome is predicted" },
-            keyStats: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "3 bullet points of critical statistics"
-            },
-            overUnder: { type: Type.STRING, description: "Prediction for Over/Under 2.5 Goals (e.g. 'Over 2.5')" },
-            btts: { type: Type.STRING, description: "Both Teams To Score prediction (e.g. 'Yes' or 'No')" },
-            predictionLevel: { type: Type.INTEGER, description: "A score from 1-100 indicating the strength of this prediction status." }
-          },
-          required: ["homeTeam", "awayTeam", "predictedWinner", "scorePrediction", "confidence", "reasoning", "keyStats", "overUnder", "btts", "predictionLevel"]
-        }
+        tools: [{ googleSearch: {} }],
+        // responseMimeType is NOT allowed with tools in the current SDK version for this model family
       }
     });
 
-    if (response.text) {
-      return JSON.parse(response.text) as PredictionData;
+    const text = response.text || "";
+    
+    // Clean up markdown if present
+    const cleanText = text.replace(/```json|```/g, '').trim();
+    
+    // Extract JSON object
+    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+    
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]) as PredictionData;
     }
-    throw new Error("No data returned from AI");
+    
+    console.error("AI returned invalid format:", text);
+    throw new Error("AI response could not be parsed as JSON");
+
   } catch (error) {
     console.error("Error fetching prediction:", error);
     throw error;
@@ -72,23 +86,24 @@ export const getPrediction = async (matchQuery: string): Promise<PredictionData>
 };
 
 export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
-    if (!process.env.API_KEY) return [];
-    
-    const today = new Date().toDateString();
-    const model = "gemini-2.5-flash";
-    
-    // We use the Google Search tool to get REAL match data.
-    // Since responseSchema is not supported with tools, we ask for raw JSON text.
-    const prompt = `
-      Using Google Search, find 4 confirmed football matches playing today (${today}) or tomorrow.
-      Focus on major leagues (EPL, La Liga, Serie A, Bundesliga, Champions League) or popular international matches.
-      
-      Output the result strictly as a JSON array of objects. Do not use markdown formatting or code blocks.
-      Each object must have these fields: "id" (number), "league" (string), "home" (string), "away" (string), "time" (string).
-      Example format: [{"id": 1, "league": "Premier League", "home": "Arsenal", "away": "Chelsea", "time": "20:00"}]
-    `;
-
     try {
+        // Safe check for API key without throwing to avoid crashing the home page load
+        if (!process.env.API_KEY) {
+            console.warn("Skipping trending matches: API Key missing.");
+            return [];
+        }
+
+        const ai = getAI();
+        const today = new Date().toDateString();
+        const model = "gemini-2.5-flash";
+        
+        const prompt = `
+          Using Google Search, find 4 high-profile football matches playing today (${today}) or tomorrow.
+          
+          Output the result strictly as a JSON array of objects. Do not use markdown.
+          Format: [{"id": 1, "league": "string", "home": "string", "away": "string", "time": "string"}]
+        `;
+
         const response = await ai.models.generateContent({
             model,
             contents: prompt,
@@ -98,17 +113,16 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
         });
 
         const text = response.text || "";
+        const cleanText = text.replace(/```json|```/g, '').trim();
+        const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
         
-        // Robust JSON extraction
-        const jsonMatch = text.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
             const matches = JSON.parse(jsonMatch[0]) as TrendingMatch[];
-            // Ensure we return valid objects
             return matches.slice(0, 4).map((m, i) => ({
                 id: i + 1,
-                league: m.league || "Unknown League",
-                home: m.home || "Home Team",
-                away: m.away || "Away Team",
+                league: m.league || "Unknown",
+                home: m.home || "Home",
+                away: m.away || "Away",
                 time: m.time || "TBD"
             }));
         }
@@ -121,10 +135,11 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
 };
 
 export const createSupportChat = (): Chat => {
+  const ai = getAI();
   return ai.chats.create({
     model: "gemini-2.5-flash",
     config: {
-      systemInstruction: "You are 'BetBot', a friendly and professional customer support agent for 'Bet Smart With AI'. Your goal is to assist users with navigating the website, explaining the VIP plans (Weekly, Monthly Pro, Season Ticket), and clarifying betting terms (Over/Under, BTTS). You can explain how the AI works (aggregating stats). If users ask for a specific match prediction during this chat, kindly guide them to use the main search bar on the home page. Keep your answers concise, helpful, and polite.",
+      systemInstruction: "You are 'BetBot', a support agent for 'Bet Smart With AI'. Help users with VIP plans and explaining betting terms. If asked for predictions, guide them to the home page search bar.",
     }
   });
 };

@@ -19,13 +19,18 @@ const ChatSupport: React.FC<ChatSupportProps> = ({ darkMode }) => {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [initError, setInitError] = useState(false);
   
   const chatRef = useRef<Chat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Initialize chat session
-    chatRef.current = createSupportChat();
+    try {
+      chatRef.current = createSupportChat();
+    } catch (e) {
+      console.error("Failed to initialize chat:", e);
+      setInitError(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -38,7 +43,14 @@ const ChatSupport: React.FC<ChatSupportProps> = ({ darkMode }) => {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !chatRef.current) return;
+    if (!input.trim()) return;
+    
+    if (initError || !chatRef.current) {
+        const errorMsg: Message = { id: Date.now().toString(), text: "Chat system is currently unavailable. Please check API configuration.", sender: 'bot' };
+        setMessages(prev => [...prev, { id: Date.now().toString(), text: input, sender: 'user' }, errorMsg]);
+        setInput('');
+        return;
+    }
 
     const userMsg: Message = { id: Date.now().toString(), text: input, sender: 'user' };
     setMessages(prev => [...prev, userMsg]);
@@ -131,13 +143,14 @@ const ChatSupport: React.FC<ChatSupportProps> = ({ darkMode }) => {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Type a message..."
-                className={`flex-1 px-4 py-2 rounded-full border outline-none text-sm focus:ring-2 focus:ring-green-500
+                placeholder={initError ? "Chat unavailable" : "Type a message..."}
+                disabled={initError}
+                className={`flex-1 px-4 py-2 rounded-full border outline-none text-sm focus:ring-2 focus:ring-green-500 disabled:opacity-50
                   ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900'}`}
               />
               <button
                 type="submit"
-                disabled={loading || !input.trim()}
+                disabled={loading || !input.trim() || initError}
                 className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
