@@ -14,17 +14,19 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
   const [trendingMatches, setTrendingMatches] = useState<TrendingMatch[]>([]);
   const [loadingTrending, setLoadingTrending] = useState(true);
 
+  const fetchTrending = async () => {
+      setLoadingTrending(true);
+      try {
+          const matches = await getTrendingMatches();
+          setTrendingMatches(matches);
+      } catch (e) {
+          console.error("Error loading trending matches:", e);
+      } finally {
+          setLoadingTrending(false);
+      }
+  };
+
   useEffect(() => {
-    const fetchTrending = async () => {
-        try {
-            const matches = await getTrendingMatches();
-            setTrendingMatches(matches);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoadingTrending(false);
-        }
-    };
     fetchTrending();
   }, []);
 
@@ -39,6 +41,7 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
       const data = await getPrediction(matchQuery);
       setPrediction(data);
     } catch (err) {
+      console.error("Prediction failed:", err);
       setError('Failed to fetch prediction. Please check your API Key or try again.');
     } finally {
       setLoading(false);
@@ -77,7 +80,7 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
                 Win More with <span className="text-green-500">AI-Powered Stats</span>
                 </h1>
                 <p className={`text-lg md:text-xl mb-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Get high-probability betting predictions backed by data from top statistical sources.
+                Get high-probability betting predictions backed by data from top statistical sources like SportMonks and Forebet.
                 </p>
             </>
         )}
@@ -120,7 +123,7 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
                     <div className={`text-center py-8 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                         Loading trending matches...
                     </div>
-                ) : (
+                ) : trendingMatches.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {trendingMatches.map((game) => (
                             <button
@@ -148,6 +151,16 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
                                 </div>
                             </button>
                         ))}
+                    </div>
+                ) : (
+                    <div className={`flex flex-col items-center gap-4 py-8 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                        <p>Unable to load trending matches at this moment.</p>
+                        <button 
+                            onClick={fetchTrending}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'}`}
+                        >
+                            Retry Loading
+                        </button>
                     </div>
                 )}
             </div>

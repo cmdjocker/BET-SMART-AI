@@ -15,29 +15,53 @@ declare const process: {
 const getAI = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    console.error("API_KEY is missing in environment variables.");
+    console.error("API_KEY is missing in environment variables. Please check your Vercel settings.");
     throw new Error("API Key is missing. Please check your Vercel settings.");
   }
   return new GoogleGenAI({ apiKey });
+};
+
+/**
+ * Robust JSON extraction helper
+ */
+const extractJSON = <T>(text: string): T | null => {
+    try {
+        // Remove markdown code blocks if present
+        let cleanText = text.replace(/```json|```/g, '').trim();
+        
+        // Find the first '{' or '['
+        const firstOpen = cleanText.search(/[{[]/);
+        if (firstOpen !== -1) {
+            cleanText = cleanText.substring(firstOpen);
+            // Find the last '}' or ']'
+            const lastClose = cleanText.search(/[}\]](?!.*[}\]])/);
+            if (lastClose !== -1) {
+                cleanText = cleanText.substring(0, lastClose + 1);
+            }
+        }
+        
+        return JSON.parse(cleanText) as T;
+    } catch (e) {
+        console.error("JSON Parse Error:", e);
+        console.log("Raw text was:", text);
+        return null;
+    }
 };
 
 export const getPrediction = async (matchQuery: string): Promise<PredictionData> => {
   const ai = getAI();
   const model = "gemini-2.5-flash";
   
-  // We use googleSearch to get real stats from the requested sources.
-  // Note: When using tools, we cannot use responseMimeType: "application/json".
-  // We must ask for JSON in the prompt and parse it manually.
-  
   const prompt = `
     Analyze this match: "${matchQuery}".
     
     Step 1: SEARCH. Perform a Google Search to find the latest statistics, team form, head-to-head records, and injury news. 
-    Prioritize data from these sources if available: SportMonks, Forebet, SportsMole, FiveThirtyEight, SofaScore.
+    Prioritize data from these sources if available: SportMonks, Forebet, SportsMole, FiveThirtyEight, SofaScore, FlashScore.
     
     Step 2: PREDICT. Based on the search results, synthesize a betting prediction.
     
-    Step 3: OUTPUT. Return the result STRICTLY as a valid JSON object. Do not include markdown formatting (like \`\`\`json).
+    Step 3: OUTPUT. Return the result STRICTLY as a valid JSON object. 
+    DO NOT output any conversational text before or after the JSON.
     
     The JSON object must strictly follow this schema:
     {
@@ -60,23 +84,17 @@ export const getPrediction = async (matchQuery: string): Promise<PredictionData>
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType is NOT allowed with tools in the current SDK version for this model family
+        // responseMimeType is NOT allowed with tools
       }
     });
 
     const text = response.text || "";
+    const data = extractJSON<PredictionData>(text);
     
-    // Clean up markdown if present
-    const cleanText = text.replace(/```json|```/g, '').trim();
-    
-    // Extract JSON object
-    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as PredictionData;
+    if (data) {
+      return data;
     }
     
-    console.error("AI returned invalid format:", text);
     throw new Error("AI response could not be parsed as JSON");
 
   } catch (error) {
@@ -87,7 +105,6 @@ export const getPrediction = async (matchQuery: string): Promise<PredictionData>
 
 export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
     try {
-        // Safe check for API key without throwing to avoid crashing the home page load
         if (!process.env.API_KEY) {
             console.warn("Skipping trending matches: API Key missing.");
             return [];
@@ -98,9 +115,10 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
         const model = "gemini-2.5-flash";
         
         const prompt = `
-          Using Google Search, find 4 high-profile football matches playing today (${today}) or tomorrow.
+          Using Google Search, find 4 confirmed high-profile football matches playing today (${today}) or tomorrow.
           
-          Output the result strictly as a JSON array of objects. Do not use markdown.
+          Output the result STRICTLY as a JSON array of objects. 
+          DO NOT output any conversational text.
           Format: [{"id": 1, "league": "string", "home": "string", "away": "string", "time": "string"}]
         `;
 
@@ -113,11 +131,9 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
         });
 
         const text = response.text || "";
-        const cleanText = text.replace(/```json|```/g, '').trim();
-        const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
+        const matches = extractJSON<TrendingMatch[]>(text);
         
-        if (jsonMatch) {
-            const matches = JSON.parse(jsonMatch[0]) as TrendingMatch[];
+        if (matches && Array.isArray(matches)) {
             return matches.slice(0, 4).map((m, i) => ({
                 id: i + 1,
                 league: m.league || "Unknown",
@@ -127,6 +143,7 @@ export const getTrendingMatches = async (): Promise<TrendingMatch[]> => {
             }));
         }
         
+        console.warn("Failed to parse trending matches JSON.");
         return [];
     } catch (e) {
         console.error("Failed to fetch trending matches", e);
