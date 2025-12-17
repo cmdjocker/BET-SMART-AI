@@ -9,7 +9,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY)
+      // JSON.stringify(undefined) returns undefined, which causes Vite to skip replacement.
+      // We default to "" to ensure the code becomes 'process.env.API_KEY': "" instead of leaving the variable.
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || '')
     }
   };
 });

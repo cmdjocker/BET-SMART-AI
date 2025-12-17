@@ -35,7 +35,7 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
     setLoading(true);
     setError('');
     setPrediction(null);
-    setQuery(matchQuery); // Update the input field
+    setQuery(matchQuery);
 
     try {
       const data = await getPrediction(matchQuery);
@@ -60,7 +60,7 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
 
   return (
     <div className="max-w-4xl mx-auto w-full">
-        {/* Logo Section - Bigger */}
+        {/* Logo Section */}
         <div className="flex flex-col items-center justify-center mb-12 animate-fade-in">
              <div className="w-32 h-32 bg-gradient-to-br from-green-500 to-emerald-700 rounded-3xl flex items-center justify-center shadow-2xl transform -rotate-2 hover:rotate-0 transition-transform duration-300">
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -77,10 +77,10 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
         {!prediction && (
             <>
                 <h1 className={`text-4xl md:text-6xl font-extrabold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Win More with <span className="text-green-500">AI-Powered Stats</span>
+                Win More with <span className="text-green-500">SportMonks Data</span>
                 </h1>
                 <p className={`text-lg md:text-xl mb-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Get high-probability betting predictions backed by data from top statistical sources like SportMonks and Forebet.
+                Get high-probability insights backed by real-time statistics from top sources like SportMonks, SofaScore, and Forebet.
                 </p>
             </>
         )}
@@ -154,12 +154,12 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
                     </div>
                 ) : (
                     <div className={`flex flex-col items-center gap-4 py-8 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                        <p>Unable to load trending matches at this moment.</p>
+                        <p>Unable to load trending matches.</p>
                         <button 
                             onClick={fetchTrending}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'}`}
                         >
-                            Retry Loading
+                            Retry
                         </button>
                     </div>
                 )}
@@ -229,7 +229,7 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
             {/* AI Analysis & Prediction Level */}
             <div className={`mb-8 p-6 rounded-xl ${darkMode ? 'bg-slate-900' : 'bg-gray-50'}`}>
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>AI Analysis</h3>
+                    <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Analysis</h3>
                     <div className={`px-3 py-1 rounded-full text-xs font-bold ${darkMode ? 'bg-slate-800 text-yellow-400' : 'bg-white text-yellow-600 border'}`}>
                         Confidence: {prediction.confidence}%
                     </div>
@@ -242,7 +242,7 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
                 {/* Prediction Level Bar */}
                 <div>
                     <div className="flex justify-between text-xs font-semibold uppercase tracking-wider mb-2">
-                        <span className="text-gray-400">Prediction Level Status</span>
+                        <span className="text-gray-400">Strength</span>
                         <span className={darkMode ? 'text-white' : 'text-gray-900'}>{prediction.predictionLevel}/100</span>
                     </div>
                     <div className="h-4 w-full bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
@@ -266,6 +266,33 @@ const HomeView: React.FC<HomeViewProps> = ({ darkMode }) => {
                     ))}
                 </ul>
             </div>
+
+            {/* Sources */}
+            {prediction.sources && prediction.sources.length > 0 && (
+                <div className={`mb-8 p-4 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                    <h3 className={`text-sm font-bold uppercase tracking-wider mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Data Sources</h3>
+                    <div className="flex flex-wrap gap-2">
+                        {prediction.sources.map((source, idx) => (
+                            <a 
+                                key={idx} 
+                                href={source.uri} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className={`text-xs px-3 py-1.5 rounded-full transition-colors flex items-center gap-1
+                                    ${darkMode 
+                                        ? 'bg-slate-800 text-blue-400 hover:bg-slate-700' 
+                                        : 'bg-white text-blue-600 border border-gray-200 hover:bg-gray-100'
+                                    }`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                {source.title.length > 30 ? source.title.substring(0, 30) + '...' : source.title}
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Home / Search Again Button */}
             <button 

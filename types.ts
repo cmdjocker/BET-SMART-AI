@@ -1,3 +1,8 @@
+export interface Source {
+  title: string;
+  uri: string;
+}
+
 export interface PredictionData {
   homeTeam: string;
   awayTeam: string;
@@ -9,6 +14,7 @@ export interface PredictionData {
   overUnder: string; // e.g., "Over 2.5"
   btts: string; // e.g., "Yes"
   predictionLevel: number; // 1 to 100
+  sources?: Source[];
 }
 
 export interface VipPlan {
